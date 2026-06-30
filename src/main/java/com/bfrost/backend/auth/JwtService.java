@@ -20,7 +20,7 @@ public class JwtService {
 
     public JwtService(
             @Value("${bfrost.jwt.secret}") String secret,
-            @Value("$bfrost.jwt.access-token-expiry-ms") long accessTokenExpiryMs
+            @Value("${bfrost.jwt.access-token-expiry-ms}") long accessTokenExpiryMs
     ){
         this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessTokenExpiryMs = accessTokenExpiryMs;
