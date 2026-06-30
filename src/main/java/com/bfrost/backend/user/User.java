@@ -1,4 +1,4 @@
-package com.bfrost.user;
+package com.bfrost.backend.user;
 
 import jakarta.persistence.*;
 import lombok.*;

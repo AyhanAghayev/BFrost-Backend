@@ -1,6 +1,6 @@
-package com.bfrost.user.dto;
+package com.bfrost.backend.user.dto;
 
-import com.bfrost.user.User;
+import com.bfrost.backend.user.User;
 
 import java.time.Instant;
 import java.util.UUID;
