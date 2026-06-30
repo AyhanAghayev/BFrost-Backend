@@ -5,9 +5,13 @@ import com.bfrost.backend.user.dto.UserProfileDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.bfrost.backend.common.exception.ConflictException;
+import com.bfrost.backend.common.exception.ForbiddenException;
+import com.bfrost.backend.common.exception.ResourceNotFoundException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 
 @Service
@@ -15,29 +19,71 @@ import java.util.UUID;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @Transactional
+    public void changePassword(UUID userId, String currentPassword, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (currentPassword == null || !passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new BadCredentialsException("Current password is incorrect");
+        }
+        if (newPassword == null || newPassword.length() < 8) {
+            throw new IllegalArgumentException("New password must be at least 8 characters");
+        }
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+    }
+
+    @Transactional
+    public void changeEmail(UUID userId, String newEmail, String currentPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (currentPassword == null || !passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new BadCredentialsException("Current password is incorrect");
+        }
+        if (newEmail == null || !newEmail.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            throw new IllegalArgumentException("Enter a valid email address");
+        }
+        if (newEmail.equalsIgnoreCase(user.getEmail())) return;
+        if (userRepository.existsByEmail(newEmail)) {
+            throw new ConflictException("Email already in use: " + newEmail);
+        }
+        user.setEmail(newEmail);
+        user.setEmailVerified(false);
+    }
+
+    @Transactional
+    public void deleteAccount(UUID userId, String currentPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (currentPassword == null || !passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new BadCredentialsException("Current password is incorrect");
+        }
+        userRepository.delete(user);
+    }
 
     @Transactional(readOnly = true)
     public UserProfileDto getProfile(String username, UUID currentUserId) {
         User user = userRepository.findByUsername(username)
-            .orElseThrow(() -> new NoSuchElementException("User not found: " + username));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
         return buildDto(user, currentUserId);
     }
 
     @Transactional(readOnly = true)
     public UserProfileDto getProfileById(UUID userId, UUID currentUserId) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new NoSuchElementException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return buildDto(user, currentUserId);
     }
 
     @Transactional
     public UserProfileDto updateProfile(UUID userId, UUID currentUserId, UpdateProfileRequest req) {
-        if (!userId.equals(currentUserId)) throw new SecurityException("Cannot update another user's profile");
+        if (!userId.equals(currentUserId)) throw new ForbiddenException("Cannot update another user's profile");
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new NoSuchElementException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         if (req.username() != null && !req.username().equals(user.getUsername())) {
             if (userRepository.existsByUsername(req.username())) {
-                throw new IllegalStateException("Username already taken: " + req.username());
+                throw new ConflictException("Username already taken: " + req.username());
             }
             user.setUsername(req.username());
         }
@@ -57,7 +103,6 @@ public class UserService {
             .toList();
     }
 
-    // Follower/following counts are 0 and isFollowed is false until the follow system exists.
     private UserProfileDto buildDto(User user, UUID currentUserId) {
         boolean isSelf = currentUserId != null && currentUserId.equals(user.getId());
         return UserProfileDto.from(user, 0L, 0L, false, isSelf);

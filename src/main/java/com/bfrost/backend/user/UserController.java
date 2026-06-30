@@ -5,6 +5,9 @@ import com.bfrost.backend.user.dto.UserProfileDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.bfrost.backend.auth.BFrostUserDetails;
 
 import java.util.List;
 import java.util.UUID;
@@ -17,26 +20,53 @@ public class UserController {
     private final UserService userService;
     
     @GetMapping("/me")
-    public UserProfileDto getMe(@RequestHeader("X-User-Id") UUID currentUserId) {
-        return userService.getProfileById(currentUserId, currentUserId);
+    public UserProfileDto getMe(@AuthenticationPrincipal BFrostUserDetails principal) {
+        return userService.getProfile(principal.user().getUsername(), principal.userId());
     }
 
     @GetMapping("/{username}")
     public UserProfileDto getProfile(@PathVariable String username,
-                                     @RequestHeader(value = "X-User-Id", required = false) UUID currentUserId) {
-        return userService.getProfile(username, currentUserId);
+                                     @AuthenticationPrincipal BFrostUserDetails principal) {
+        return userService.getProfile(username, principal != null ? principal.userId() : null);
     }
 
     @PatchMapping("/{userId}")
     public UserProfileDto updateProfile(@PathVariable UUID userId,
                                         @Valid @RequestBody UpdateProfileRequest req,
-                                        @RequestHeader("X-User-Id") UUID currentUserId) {
-        return userService.updateProfile(userId, currentUserId, req);
+                                        @AuthenticationPrincipal BFrostUserDetails principal) {
+        return userService.updateProfile(userId, principal.userId(), req);
+    }
+
+    public record ChangePasswordRequest(String currentPassword, String newPassword) {}
+
+    @PostMapping("/me/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(@RequestBody ChangePasswordRequest req,
+                               @AuthenticationPrincipal BFrostUserDetails principal) {
+        userService.changePassword(principal.userId(), req.currentPassword(), req.newPassword());
+    }
+
+    public record ChangeEmailRequest(String newEmail, String currentPassword) {}
+
+    @PostMapping("/me/email")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changeEmail(@RequestBody ChangeEmailRequest req,
+                            @AuthenticationPrincipal BFrostUserDetails principal) {
+        userService.changeEmail(principal.userId(), req.newEmail(), req.currentPassword());
+    }
+
+    public record DeleteAccountRequest(String currentPassword) {}
+
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAccount(@RequestBody DeleteAccountRequest req,
+                              @AuthenticationPrincipal BFrostUserDetails principal) {
+        userService.deleteAccount(principal.userId(), req.currentPassword());
     }
 
     @GetMapping("/search")
     public List<UserProfileDto> search(@RequestParam String q,
-                                       @RequestHeader(value = "X-User-Id", required = false) UUID currentUserId) {
-        return userService.search(q, currentUserId);
+                                       @AuthenticationPrincipal BFrostUserDetails principal) {
+        return userService.search(q, principal != null ? principal.userId() : null);
     }
 }
