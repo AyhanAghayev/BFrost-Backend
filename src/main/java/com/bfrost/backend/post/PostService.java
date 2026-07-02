@@ -5,6 +5,7 @@ import com.bfrost.backend.club.MembershipRepository;
 import com.bfrost.backend.common.CursorPage;
 import com.bfrost.backend.common.exception.ForbiddenException;
 import com.bfrost.backend.common.exception.ResourceNotFoundException;
+import com.bfrost.backend.post.dto.CommentDto;
 import com.bfrost.backend.post.dto.CreatePostRequest;
 import com.bfrost.backend.post.dto.PostDto;
 import com.bfrost.backend.user.User;
@@ -21,6 +22,7 @@ import java.util.*;
 public class PostService {
 
     private final PostRepository postRepository;
+    private final CommentRepository commentRepository;
     private final ReactionRepository reactionRepository;
     private final UserRepository userRepository;
     private final MembershipRepository membershipRepository;
@@ -107,6 +109,24 @@ public class PostService {
                 .orElseThrow(() -> new ResourceNotFoundException("Post not found"));
         if (!post.getAuthor().getId().equals(userId)) throw new ForbiddenException("Cannot delete another user's post");
         postRepository.delete(post);
+    }
+
+    @Transactional
+    public CommentDto comment(UUID postId, UUID authorId, String body) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post not found"));
+        User author = userRepository.getReferenceById(authorId);
+        Comment c = Comment.builder().post(post).author(author).body(body).build();
+        commentRepository.save(c);
+        post.setCommentCount(post.getCommentCount() + 1);
+        return CommentDto.from(c);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CommentDto> getComments(UUID postId) {
+        return commentRepository.findByPostIdOrderByCreatedAtAsc(postId).stream()
+                .map(CommentDto::from)
+                .toList();
     }
 
     private PostDto buildDto(Post post, UUID currentUserId) {
