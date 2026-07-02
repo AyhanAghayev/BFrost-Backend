@@ -50,6 +50,14 @@ public class PostController {
         postService.deletePost(postId, principal.userId());
     }
 
+    @PostMapping("/posts/{postId}/react")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void react(@PathVariable UUID postId,
+                      @RequestParam ReactionType type,
+                      @AuthenticationPrincipal BFrostUserDetails principal) {
+        postService.react(postId, principal.userId(), type);
+    }
+
     @GetMapping("/users/{userId}/posts")
     public CursorPage<PostDto> getUserPosts(@PathVariable UUID userId,
                                             @RequestParam(required = false) String cursor,
