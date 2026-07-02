@@ -4,6 +4,7 @@ import com.bfrost.backend.auth.BFrostUserDetails;
 import com.bfrost.backend.club.ClubRepository;
 import com.bfrost.backend.common.CursorPage;
 import com.bfrost.backend.common.exception.ResourceNotFoundException;
+import com.bfrost.backend.post.dto.CommentDto;
 import com.bfrost.backend.post.dto.CreatePostRequest;
 import com.bfrost.backend.post.dto.PostDto;
 import jakarta.validation.Valid;
@@ -13,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -56,6 +58,19 @@ public class PostController {
                       @RequestParam ReactionType type,
                       @AuthenticationPrincipal BFrostUserDetails principal) {
         postService.react(postId, principal.userId(), type);
+    }
+
+    @GetMapping("/posts/{postId}/comments")
+    public List<CommentDto> getComments(@PathVariable UUID postId) {
+        return postService.getComments(postId);
+    }
+
+    @PostMapping("/posts/{postId}/comments")
+    @ResponseStatus(HttpStatus.CREATED)
+    public CommentDto comment(@PathVariable UUID postId,
+                              @RequestBody @Valid CommentBody body,
+                              @AuthenticationPrincipal BFrostUserDetails principal) {
+        return postService.comment(postId, principal.userId(), body.body());
     }
 
     @GetMapping("/users/{userId}/posts")
