@@ -20,8 +20,8 @@ import java.util.*;
 @RequiredArgsConstructor
 public class PostService {
 
-
     private final PostRepository postRepository;
+    private final ReactionRepository reactionRepository;
     private final UserRepository userRepository;
     private final MembershipRepository membershipRepository;
     private final ClubRepository clubRepository;
@@ -68,6 +68,37 @@ public class PostService {
         var cursor = parseCursor(cursorStr);
         List<Post> posts = postRepository.findByTargetWithCursor(targetType, targetId, cursor.createdAt(), cursor.id(), size + 1);
         return CursorPage.of(posts.stream().map(p -> buildDto(p, currentUserId)).toList(), size + 1, dto -> encodeCursor(dto.createdAt(), dto.id()));
+    }
+
+    @Transactional
+    public void react(UUID postId, UUID userId, ReactionType type) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post not found"));
+        Optional<Reaction> existing = reactionRepository.findByPostIdAndUserId(postId, userId);
+        if (existing.isPresent()) {
+            Reaction r = existing.get();
+            if (r.getReactionType() == type) {
+                reactionRepository.delete(r);
+                if (type == ReactionType.LIKE) post.setLikeCount(Math.max(0, post.getLikeCount() - 1));
+                else post.setDislikeCount(Math.max(0, post.getDislikeCount() - 1));
+            } else {
+                if (type == ReactionType.LIKE) {
+                    post.setLikeCount(post.getLikeCount() + 1);
+                    post.setDislikeCount(Math.max(0, post.getDislikeCount() - 1));
+                } else {
+                    post.setDislikeCount(post.getDislikeCount() + 1);
+                    post.setLikeCount(Math.max(0, post.getLikeCount() - 1));
+                }
+                r.setReactionType(type);
+                reactionRepository.save(r);
+            }
+        } else {
+            User user = userRepository.getReferenceById(userId);
+            reactionRepository.save(Reaction.builder().post(post).user(user).reactionType(type).build());
+            if (type == ReactionType.LIKE) post.setLikeCount(post.getLikeCount() + 1);
+            else post.setDislikeCount(post.getDislikeCount() + 1);
+
+        }
     }
 
     @Transactional
