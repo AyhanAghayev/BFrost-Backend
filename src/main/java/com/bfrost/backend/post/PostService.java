@@ -3,6 +3,7 @@ package com.bfrost.backend.post;
 import com.bfrost.backend.club.ClubRepository;
 import com.bfrost.backend.club.MembershipRepository;
 import com.bfrost.backend.common.CursorPage;
+import com.bfrost.backend.common.exception.ConflictException;
 import com.bfrost.backend.common.exception.ForbiddenException;
 import com.bfrost.backend.common.exception.ResourceNotFoundException;
 import com.bfrost.backend.post.dto.CommentDto;
@@ -30,6 +31,7 @@ public class PostService {
     private final UserRepository userRepository;
     private final MembershipRepository membershipRepository;
     private final ClubRepository clubRepository;
+    private final SavedPostRepository savedPostRepository;
 
 
     @Transactional
