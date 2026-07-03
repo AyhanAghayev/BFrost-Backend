@@ -24,6 +24,8 @@ public class PostService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final ReactionRepository reactionRepository;
+    private final PollOptionRepository pollOptionRepository;
+    private final PollVoteRepository pollVoteRepository;
     private final UserRepository userRepository;
     private final MembershipRepository membershipRepository;
     private final ClubRepository clubRepository;
@@ -47,6 +49,17 @@ public class PostService {
                 .channel(req.channel())
                 .build();
         postRepository.save(post);
+
+        if (req.postType() == PostType.POLL && req.pollOptions() != null) {
+            for (int i = 0; i < req.pollOptions().size(); i++) {
+                PollOption opt = PollOption.builder()
+                    .post(post)
+                    .optionText(req.pollOptions().get(i))
+                    .position(i)
+                    .build();
+                pollOptionRepository.save(opt);
+            }
+        }
 
         return buildDto(post, authorId);
     }
@@ -129,9 +142,38 @@ public class PostService {
                 .toList();
     }
 
+    @Transactional
+    public void votePoll(UUID postId, UUID optionId, UUID userId) {
+        if (pollVoteRepository.countVotesByUserOnPost(postId, userId) > 0) {
+            throw new ConflictException("Already voted on this poll");
+        }
+        PollOption option = pollOptionRepository.findById(optionId)
+            .orElseThrow(() -> new ResourceNotFoundException("Option not found"));
+        if (!option.getPost().getId().equals(postId)) throw new IllegalArgumentException("Option does not belong to this post");
+        User user = userRepository.getReferenceById(userId);
+        pollVoteRepository.save(PollVote.builder().option(option).user(user).build());
+        option.setVoteCount(option.getVoteCount() + 1);
+    }
+
     private PostDto buildDto(Post post, UUID currentUserId) {
         String reaction = null;
         boolean saved = false;
+        List<PollOptionDto> options = List.of();
+        if (currentUserId != null) {
+            reaction = reactionRepository.findByPostIdAndUserId(post.getId(), currentUserId)
+                .map(r -> r.getReactionType().name()).orElse(null);
+            saved = savedPostRepository.existsByPostIdAndUserId(post.getId(), currentUserId);
+        }
+        if (post.getPostType() == PostType.POLL) {
+            List<UUID> voted = currentUserId != null
+                ? pollOptionRepository.findVotedOptionIdsByUserAndPost(currentUserId, post.getId())
+                : List.of();
+            Set<UUID> votedSet = new HashSet<>(voted);
+            options = post.getPollOptions().stream()
+                .map(o -> PollOptionDto.from(o, votedSet.contains(o.getId())))
+                .toList();
+        }
+
         String targetName;
         String targetSlug;
         if (post.getTargetType() == TargetType.CLUB_PAGE) {
@@ -142,7 +184,7 @@ public class PostService {
             targetName = post.getAuthor().getDisplayName();
             targetSlug = post.getAuthor().getUsername();
         }
-        return PostDto.from(post, reaction, saved, targetName, targetSlug);
+        return PostDto.from(post, reaction, saved, options, targetName, targetSlug);
     }
 
     private record Cursor(Instant createdAt, UUID id) {}

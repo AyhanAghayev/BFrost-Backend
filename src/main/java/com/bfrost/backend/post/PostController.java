@@ -73,6 +73,14 @@ public class PostController {
         return postService.comment(postId, principal.userId(), body.body());
     }
 
+    @PostMapping("/posts/{postId}/poll/{optionId}/vote")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void votePoll(@PathVariable UUID postId,
+                         @PathVariable UUID optionId,
+                         @AuthenticationPrincipal BFrostUserDetails principal) {
+        postService.votePoll(postId, optionId, principal.userId());
+    }
+
     @GetMapping("/users/{userId}/posts")
     public CursorPage<PostDto> getUserPosts(@PathVariable UUID userId,
                                             @RequestParam(required = false) String cursor,
