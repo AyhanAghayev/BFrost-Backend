@@ -26,16 +26,18 @@ public class PostService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final ReactionRepository reactionRepository;
+    private final SavedPostRepository savedPostRepository;
     private final PollOptionRepository pollOptionRepository;
     private final PollVoteRepository pollVoteRepository;
     private final UserRepository userRepository;
-    private final MembershipRepository membershipRepository;
-    private final ClubRepository clubRepository;
-    private final SavedPostRepository savedPostRepository;
+    private final com.bfrost.backend.club.MembershipRepository membershipRepository;
+    private final com.bfrost.backend.club.ClubRepository clubRepository;
 
 
     @Transactional
     public PostDto create(CreatePostRequest req, UUID authorId) {
+        // Posting to a club requires membership — non-members must not be able to post,
+        // especially in private clubs.
         if (req.targetType() == TargetType.CLUB_PAGE
                 && !membershipRepository.existsByClubIdAndUserId(req.targetId(), authorId)) {
             throw new ForbiddenException("You must be a member of this club to post");
@@ -57,14 +59,13 @@ public class PostService {
         if (req.postType() == PostType.POLL && req.pollOptions() != null) {
             for (int i = 0; i < req.pollOptions().size(); i++) {
                 PollOption opt = PollOption.builder()
-                    .post(post)
-                    .optionText(req.pollOptions().get(i))
-                    .position(i)
-                    .build();
+                        .post(post)
+                        .optionText(req.pollOptions().get(i))
+                        .position(i)
+                        .build();
                 pollOptionRepository.save(opt);
             }
         }
-
         return buildDto(post, authorId);
     }
 
@@ -97,10 +98,12 @@ public class PostService {
         if (existing.isPresent()) {
             Reaction r = existing.get();
             if (r.getReactionType() == type) {
+                // Toggle off
                 reactionRepository.delete(r);
                 if (type == ReactionType.LIKE) post.setLikeCount(Math.max(0, post.getLikeCount() - 1));
                 else post.setDislikeCount(Math.max(0, post.getDislikeCount() - 1));
             } else {
+                // Switch reaction
                 if (type == ReactionType.LIKE) {
                     post.setLikeCount(post.getLikeCount() + 1);
                     post.setDislikeCount(Math.max(0, post.getDislikeCount() - 1));
@@ -121,11 +124,28 @@ public class PostService {
     }
 
     @Transactional
-    public void deletePost(UUID postId, UUID userId) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new ResourceNotFoundException("Post not found"));
-        if (!post.getAuthor().getId().equals(userId)) throw new ForbiddenException("Cannot delete another user's post");
-        postRepository.delete(post);
+    public void save(UUID postId, UUID userId) {
+        if (!postRepository.existsById(postId)) {
+            throw new ResourceNotFoundException("Post not found");
+        }
+        if (!savedPostRepository.existsByPostIdAndUserId(postId, userId)) {
+            savedPostRepository.save(SavedPost.builder()
+                    .post(postRepository.getReferenceById(postId))
+                    .user(userRepository.getReferenceById(userId))
+                    .build());
+        }
+    }
+
+    @Transactional
+    public void unsave(UUID postId, UUID userId) {
+        savedPostRepository.deleteByPostIdAndUserId(postId, userId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PostDto> getSavedPosts(UUID userId) {
+        return savedPostRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(sp -> buildDto(sp.getPost(), userId))
+                .toList();
     }
 
     @Transactional
@@ -152,11 +172,19 @@ public class PostService {
             throw new ConflictException("Already voted on this poll");
         }
         PollOption option = pollOptionRepository.findById(optionId)
-            .orElseThrow(() -> new ResourceNotFoundException("Option not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Option not found"));
         if (!option.getPost().getId().equals(postId)) throw new IllegalArgumentException("Option does not belong to this post");
         User user = userRepository.getReferenceById(userId);
         pollVoteRepository.save(PollVote.builder().option(option).user(user).build());
         option.setVoteCount(option.getVoteCount() + 1);
+    }
+
+    @Transactional
+    public void deletePost(UUID postId, UUID userId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResourceNotFoundException("Post not found"));
+        if (!post.getAuthor().getId().equals(userId)) throw new ForbiddenException("Cannot delete another user's post");
+        postRepository.delete(post);
     }
 
     private PostDto buildDto(Post post, UUID currentUserId) {
@@ -165,19 +193,19 @@ public class PostService {
         List<PollOptionDto> options = List.of();
         if (currentUserId != null) {
             reaction = reactionRepository.findByPostIdAndUserId(post.getId(), currentUserId)
-                .map(r -> r.getReactionType().name()).orElse(null);
+                    .map(r -> r.getReactionType().name()).orElse(null);
             saved = savedPostRepository.existsByPostIdAndUserId(post.getId(), currentUserId);
         }
         if (post.getPostType() == PostType.POLL) {
             List<UUID> voted = currentUserId != null
-                ? pollOptionRepository.findVotedOptionIdsByUserAndPost(currentUserId, post.getId())
-                : List.of();
+                    ? pollOptionRepository.findVotedOptionIdsByUserAndPost(currentUserId, post.getId())
+                    : List.of();
             Set<UUID> votedSet = new HashSet<>(voted);
             options = post.getPollOptions().stream()
-                .map(o -> PollOptionDto.from(o, votedSet.contains(o.getId())))
-                .toList();
+                    .map(o -> PollOptionDto.from(o, votedSet.contains(o.getId())))
+                    .toList();
         }
-
+        // Resolve where the post lives so the feed can show + link the target.
         String targetName;
         String targetSlug;
         if (post.getTargetType() == TargetType.CLUB_PAGE) {
