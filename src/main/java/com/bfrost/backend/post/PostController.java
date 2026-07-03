@@ -39,6 +39,11 @@ public class PostController {
         return postService.create(req, principal.userId());
     }
 
+    @GetMapping("/posts/saved")
+    public List<PostDto> getSavedPosts(@AuthenticationPrincipal BFrostUserDetails principal) {
+        return postService.getSavedPosts(principal.userId());
+    }
+
     @GetMapping("/posts/{postId}")
     public PostDto getPost(@PathVariable UUID postId,
                            @AuthenticationPrincipal BFrostUserDetails principal) {
@@ -58,6 +63,20 @@ public class PostController {
                       @RequestParam ReactionType type,
                       @AuthenticationPrincipal BFrostUserDetails principal) {
         postService.react(postId, principal.userId(), type);
+    }
+
+    @PostMapping("/posts/{postId}/save")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void save(@PathVariable UUID postId,
+                     @AuthenticationPrincipal BFrostUserDetails principal) {
+        postService.save(postId, principal.userId());
+    }
+
+    @DeleteMapping("/posts/{postId}/save")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unsave(@PathVariable UUID postId,
+                       @AuthenticationPrincipal BFrostUserDetails principal) {
+        postService.unsave(postId, principal.userId());
     }
 
     @GetMapping("/posts/{postId}/comments")
@@ -81,6 +100,7 @@ public class PostController {
         postService.votePoll(postId, optionId, principal.userId());
     }
 
+    // Nested posts by target
     @GetMapping("/users/{userId}/posts")
     public CursorPage<PostDto> getUserPosts(@PathVariable UUID userId,
                                             @RequestParam(required = false) String cursor,
