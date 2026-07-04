@@ -1,5 +1,6 @@
 package com.bfrost.backend.storage;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,8 +17,8 @@ public class LocalStorageService implements StorageService{
     private final String baseUrl;
 
     public LocalStorageService(
-            String uploadDir,
-           String baseUrl
+            @Value("${bfrost.storage.upload-dir}") String uploadDir,
+            @Value("${bfrost.storage.base-url}") String baseUrl
     ) throws IOException {
         this.uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
         this.baseUrl = baseUrl;
