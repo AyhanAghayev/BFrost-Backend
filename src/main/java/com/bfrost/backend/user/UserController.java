@@ -64,6 +64,37 @@ public class UserController {
         userService.deleteAccount(principal.userId(), req.currentPassword());
     }
 
+    @GetMapping("/{userId}/followers")
+    public List<UserProfileDto> followers(@PathVariable UUID userId,
+                                          @AuthenticationPrincipal BFrostUserDetails principal) {
+        return userService.getFollowers(userId, principal != null ? principal.userId() : null);
+    }
+
+    @GetMapping("/{userId}/following")
+    public List<UserProfileDto> following(@PathVariable UUID userId,
+                                          @AuthenticationPrincipal BFrostUserDetails principal) {
+        return userService.getFollowing(userId, principal != null ? principal.userId() : null);
+    }
+
+    @PostMapping("/{userId}/follow")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void follow(@PathVariable UUID userId,
+                       @AuthenticationPrincipal BFrostUserDetails principal) {
+        userService.follow(principal.userId(), userId);
+    }
+
+    @DeleteMapping("/{userId}/follow")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unfollow(@PathVariable UUID userId,
+                         @AuthenticationPrincipal BFrostUserDetails principal) {
+        userService.unfollow(principal.userId(), userId);
+    }
+
+    @GetMapping("/me/friends")
+    public List<UserProfileDto> friends(@AuthenticationPrincipal BFrostUserDetails principal) {
+        return userService.getFriends(principal.userId());
+    }
+
     @GetMapping("/search")
     public List<UserProfileDto> search(@RequestParam String q,
                                        @AuthenticationPrincipal BFrostUserDetails principal) {
