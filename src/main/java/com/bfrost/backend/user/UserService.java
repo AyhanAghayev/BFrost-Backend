@@ -130,6 +130,20 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    public List<UserProfileDto> getFollowers(UUID userId, UUID currentUserId) {
+        return followRepository.findByFolloweeIdOrderByCreatedAtDesc(userId).stream()
+                .map(f -> buildDto(f.getFollower(), currentUserId))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserProfileDto> getFollowing(UUID userId, UUID currentUserId) {
+        return followRepository.findByFollowerIdOrderByCreatedAtDesc(userId).stream()
+                .map(f -> buildDto(f.getFollowee(), currentUserId))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<UserProfileDto> search(String query, UUID currentUserId) {
         return userRepository.searchByText(query, 20).stream()
             .map(u -> buildDto(u, currentUserId))
