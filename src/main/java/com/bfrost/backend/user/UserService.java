@@ -116,6 +116,20 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    public boolean areFriends(UUID userA, UUID userB) {
+        return followRepository.findMutualFollow(userA, userB).isPresent();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserProfileDto> getFriends(UUID userId) {
+        return followRepository.findFriendIds(userId).stream()
+                .map(id -> userRepository.findById(id).orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .map(u -> buildDto(u, userId))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<UserProfileDto> search(String query, UUID currentUserId) {
         return userRepository.searchByText(query, 20).stream()
             .map(u -> buildDto(u, currentUserId))
