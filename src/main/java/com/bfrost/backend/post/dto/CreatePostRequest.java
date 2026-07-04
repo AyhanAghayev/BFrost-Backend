@@ -17,5 +17,6 @@ public record CreatePostRequest(
         @NotBlank String body,
         String mediaUrl,
         String linkUrl,
-        String channel
+        String channel,
+        List<String> pollOptions
 ) {}
