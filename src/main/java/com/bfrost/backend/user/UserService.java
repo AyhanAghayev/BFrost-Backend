@@ -19,6 +19,7 @@ import java.util.UUID;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final FollowRepository followRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
@@ -94,6 +95,24 @@ public class UserService {
         if (req.university()        != null) user.setUniversity(req.university());
         if (req.department()        != null) user.setDepartment(req.department());
         return buildDto(user, currentUserId);
+    }
+
+    @Transactional
+    public void follow(UUID followerId, UUID followeeId) {
+        if (followerId.equals(followeeId)) throw new IllegalArgumentException("Cannot follow yourself");
+        if (followRepository.existsByFollowerIdAndFolloweeId(followerId, followeeId)) {
+            throw new ConflictException("Already following this user");
+        }
+        User follower = userRepository.getReferenceById(followerId);
+        User followee = userRepository.getReferenceById(followeeId);
+        followRepository.save(Follow.builder().follower(follower).followee(followee).build());
+    }
+
+    @Transactional
+    public void unfollow(UUID followerId, UUID followeeId) {
+        Follow follow = followRepository.findByFollowerIdAndFolloweeId(followerId, followeeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Not following this user"));
+        followRepository.delete(follow);
     }
 
     @Transactional(readOnly = true)
