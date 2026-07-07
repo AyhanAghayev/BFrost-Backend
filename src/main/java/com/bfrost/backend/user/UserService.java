@@ -19,6 +19,7 @@ import java.util.UUID;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final FollowRepository followRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
@@ -94,6 +95,52 @@ public class UserService {
         if (req.university()        != null) user.setUniversity(req.university());
         if (req.department()        != null) user.setDepartment(req.department());
         return buildDto(user, currentUserId);
+    }
+
+    @Transactional
+    public void follow(UUID followerId, UUID followeeId) {
+        if (followerId.equals(followeeId)) throw new IllegalArgumentException("Cannot follow yourself");
+        if (followRepository.existsByFollowerIdAndFolloweeId(followerId, followeeId)) {
+            throw new ConflictException("Already following this user");
+        }
+        User follower = userRepository.getReferenceById(followerId);
+        User followee = userRepository.getReferenceById(followeeId);
+        followRepository.save(Follow.builder().follower(follower).followee(followee).build());
+    }
+
+    @Transactional
+    public void unfollow(UUID followerId, UUID followeeId) {
+        Follow follow = followRepository.findByFollowerIdAndFolloweeId(followerId, followeeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Not following this user"));
+        followRepository.delete(follow);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean areFriends(UUID userA, UUID userB) {
+        return followRepository.findMutualFollow(userA, userB).isPresent();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserProfileDto> getFriends(UUID userId) {
+        return followRepository.findFriendIds(userId).stream()
+                .map(id -> userRepository.findById(id).orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .map(u -> buildDto(u, userId))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserProfileDto> getFollowers(UUID userId, UUID currentUserId) {
+        return followRepository.findByFolloweeIdOrderByCreatedAtDesc(userId).stream()
+                .map(f -> buildDto(f.getFollower(), currentUserId))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserProfileDto> getFollowing(UUID userId, UUID currentUserId) {
+        return followRepository.findByFollowerIdOrderByCreatedAtDesc(userId).stream()
+                .map(f -> buildDto(f.getFollowee(), currentUserId))
+                .toList();
     }
 
     @Transactional(readOnly = true)
