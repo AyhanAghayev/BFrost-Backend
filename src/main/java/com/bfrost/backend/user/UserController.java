@@ -1,5 +1,7 @@
 package com.bfrost.backend.user;
 
+import com.bfrost.backend.user.dto.NotificationPrefsDto;
+import com.bfrost.backend.user.dto.UpdateNotificationPrefsRequest;
 import com.bfrost.backend.user.dto.UpdateProfileRequest;
 import com.bfrost.backend.user.dto.UserProfileDto;
 import jakarta.validation.Valid;
@@ -18,10 +20,15 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
-    
+
     @GetMapping("/me")
     public UserProfileDto getMe(@AuthenticationPrincipal BFrostUserDetails principal) {
         return userService.getProfile(principal.user().getUsername(), principal.userId());
+    }
+
+    @GetMapping("/me/friends")
+    public List<UserProfileDto> friends(@AuthenticationPrincipal BFrostUserDetails principal) {
+        return userService.getFriends(principal.userId());
     }
 
     @GetMapping("/{username}")
@@ -64,6 +71,17 @@ public class UserController {
         userService.deleteAccount(principal.userId(), req.currentPassword());
     }
 
+    @GetMapping("/me/notification-preferences")
+    public NotificationPrefsDto getNotificationPrefs(@AuthenticationPrincipal BFrostUserDetails principal) {
+        return userService.getNotificationPrefs(principal.userId());
+    }
+
+    @PatchMapping("/me/notification-preferences")
+    public NotificationPrefsDto updateNotificationPrefs(@RequestBody UpdateNotificationPrefsRequest req,
+                                                        @AuthenticationPrincipal BFrostUserDetails principal) {
+        return userService.updateNotificationPrefs(principal.userId(), req);
+    }
+
     @GetMapping("/{userId}/followers")
     public List<UserProfileDto> followers(@PathVariable UUID userId,
                                           @AuthenticationPrincipal BFrostUserDetails principal) {
@@ -88,11 +106,6 @@ public class UserController {
     public void unfollow(@PathVariable UUID userId,
                          @AuthenticationPrincipal BFrostUserDetails principal) {
         userService.unfollow(principal.userId(), userId);
-    }
-
-    @GetMapping("/me/friends")
-    public List<UserProfileDto> friends(@AuthenticationPrincipal BFrostUserDetails principal) {
-        return userService.getFriends(principal.userId());
     }
 
     @GetMapping("/search")
