@@ -6,6 +6,8 @@ import com.bfrost.backend.common.CursorPage;
 import com.bfrost.backend.common.exception.ConflictException;
 import com.bfrost.backend.common.exception.ForbiddenException;
 import com.bfrost.backend.common.exception.ResourceNotFoundException;
+import com.bfrost.backend.notification.NotificationService;
+import com.bfrost.backend.notification.NotificationType;
 import com.bfrost.backend.post.dto.CommentDto;
 import com.bfrost.backend.post.dto.CreatePostRequest;
 import com.bfrost.backend.post.dto.PollOptionDto;
@@ -30,9 +32,9 @@ public class PostService {
     private final PollOptionRepository pollOptionRepository;
     private final PollVoteRepository pollVoteRepository;
     private final UserRepository userRepository;
-    private final com.bfrost.backend.club.MembershipRepository membershipRepository;
-    private final com.bfrost.backend.club.ClubRepository clubRepository;
-
+    private final MembershipRepository membershipRepository;
+    private final ClubRepository clubRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public PostDto create(CreatePostRequest req, UUID authorId) {
@@ -119,7 +121,10 @@ public class PostService {
             reactionRepository.save(Reaction.builder().post(post).user(user).reactionType(type).build());
             if (type == ReactionType.LIKE) post.setLikeCount(post.getLikeCount() + 1);
             else post.setDislikeCount(post.getDislikeCount() + 1);
-
+            if (type == ReactionType.LIKE) {
+                notificationService.push(post.getAuthor().getId(), userId,
+                        NotificationType.LIKE, postId, "post", "liked your post");
+            }
         }
     }
 
@@ -156,6 +161,8 @@ public class PostService {
         Comment c = Comment.builder().post(post).author(author).body(body).build();
         commentRepository.save(c);
         post.setCommentCount(post.getCommentCount() + 1);
+        notificationService.push(post.getAuthor().getId(), authorId,
+                NotificationType.COMMENT, postId, "post", "commented on your post");
         return CommentDto.from(c);
     }
 

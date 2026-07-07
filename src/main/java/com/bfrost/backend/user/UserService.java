@@ -1,5 +1,9 @@
 package com.bfrost.backend.user;
 
+import com.bfrost.backend.notification.NotificationService;
+import com.bfrost.backend.notification.NotificationType;
+import com.bfrost.backend.user.dto.NotificationPrefsDto;
+import com.bfrost.backend.user.dto.UpdateNotificationPrefsRequest;
 import com.bfrost.backend.user.dto.UpdateProfileRequest;
 import com.bfrost.backend.user.dto.UserProfileDto;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +24,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
+    private final NotificationService notificationService;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
@@ -61,6 +66,24 @@ public class UserService {
             throw new BadCredentialsException("Current password is incorrect");
         }
         userRepository.delete(user);
+    }
+
+    @Transactional(readOnly = true)
+    public NotificationPrefsDto getNotificationPrefs(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        return NotificationPrefsDto.from(user);
+    }
+
+    @Transactional
+    public NotificationPrefsDto updateNotificationPrefs(UUID userId, UpdateNotificationPrefsRequest req) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (req.follow()      != null) user.setNotifyFollow(req.follow());
+        if (req.like()        != null) user.setNotifyLike(req.like());
+        if (req.comment()     != null) user.setNotifyComment(req.comment());
+        if (req.joinRequest() != null) user.setNotifyJoinRequest(req.joinRequest());
+        return NotificationPrefsDto.from(user);
     }
 
     @Transactional(readOnly = true)
@@ -106,6 +129,8 @@ public class UserService {
         User follower = userRepository.getReferenceById(followerId);
         User followee = userRepository.getReferenceById(followeeId);
         followRepository.save(Follow.builder().follower(follower).followee(followee).build());
+        notificationService.push(followeeId, followerId,
+                NotificationType.FOLLOW, followerId, "user", "started following you");
     }
 
     @Transactional
@@ -118,15 +143,6 @@ public class UserService {
     @Transactional(readOnly = true)
     public boolean areFriends(UUID userA, UUID userB) {
         return followRepository.findMutualFollow(userA, userB).isPresent();
-    }
-
-    @Transactional(readOnly = true)
-    public List<UserProfileDto> getFriends(UUID userId) {
-        return followRepository.findFriendIds(userId).stream()
-                .map(id -> userRepository.findById(id).orElse(null))
-                .filter(java.util.Objects::nonNull)
-                .map(u -> buildDto(u, userId))
-                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -144,14 +160,27 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    public List<UserProfileDto> getFriends(UUID userId) {
+        return followRepository.findFriendIds(userId).stream()
+                .map(id -> userRepository.findById(id).orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .map(u -> buildDto(u, userId))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<UserProfileDto> search(String query, UUID currentUserId) {
         return userRepository.searchByText(query, 20).stream()
-            .map(u -> buildDto(u, currentUserId))
-            .toList();
+                .map(u -> buildDto(u, currentUserId))
+                .toList();
     }
 
     private UserProfileDto buildDto(User user, UUID currentUserId) {
+        long followers = followRepository.countByFolloweeId(user.getId());
+        long following  = followRepository.countByFollowerId(user.getId());
+        boolean followed = currentUserId != null &&
+                followRepository.existsByFollowerIdAndFolloweeId(currentUserId, user.getId());
         boolean isSelf = currentUserId != null && currentUserId.equals(user.getId());
-        return UserProfileDto.from(user, 0L, 0L, false, isSelf);
+        return UserProfileDto.from(user, followers, following, followed, isSelf);
     }
 }
