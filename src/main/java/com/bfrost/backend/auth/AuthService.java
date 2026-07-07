@@ -69,7 +69,8 @@ public class AuthService {
         User user = rt.getUser();
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername());
         return new AuthResult(
-                new AuthResponse(accessToken, user.getId(), user.getUsername(), user.getDisplayName()),
+                new AuthResponse(user.getId(), user.getUsername(), user.getDisplayName()),
+                accessToken,
                 refreshTokenValue
         );
     }
@@ -89,7 +90,8 @@ public class AuthService {
                 .build();
         refreshTokenRepository.save(rt);
         return new AuthResult(
-                new AuthResponse(accessToken, user.getId(), user.getUsername(), user.getDisplayName()),
+                new AuthResponse(user.getId(), user.getUsername(), user.getDisplayName()),
+                accessToken,
                 refreshTokenValue
         );
     }
