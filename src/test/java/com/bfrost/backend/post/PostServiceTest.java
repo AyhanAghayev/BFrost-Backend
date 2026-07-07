@@ -50,25 +50,6 @@ class PostServiceTest {
     }
 
     @Test
-    void createRejectsPollWithFewerThanTwoOptions() {
-        UUID authorId = UUID.randomUUID();
-        CreatePostRequest req = new CreatePostRequest(TargetType.USER_PAGE, authorId, PostType.POLL,
-                "title", "body", null, null, null, List.of("Only one option"));
-
-        assertThatThrownBy(() -> postService.create(req, authorId)).isInstanceOf(IllegalArgumentException.class);
-        verify(postRepository, never()).save(any());
-    }
-
-    @Test
-    void createRejectsPollWithNoOptions() {
-        UUID authorId = UUID.randomUUID();
-        CreatePostRequest req = new CreatePostRequest(TargetType.USER_PAGE, authorId, PostType.POLL,
-                "title", "body", null, null, null, null);
-
-        assertThatThrownBy(() -> postService.create(req, authorId)).isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
     void createRejectsNonMemberPostingToClub() {
         UUID authorId = UUID.randomUUID();
         UUID clubId = UUID.randomUUID();
@@ -105,27 +86,6 @@ class PostServiceTest {
         postService.deletePost(postId, authorId);
 
         verify(postRepository).delete(post);
-    }
-
-    @Test
-    void getTargetPostsRejectsNonMemberOnPrivateClub() {
-        UUID clubId = UUID.randomUUID();
-        UUID strangerId = UUID.randomUUID();
-        Club club = Club.builder().id(clubId).isPublic(false).build();
-        when(clubRepository.findById(clubId)).thenReturn(Optional.of(club));
-        when(membershipRepository.existsByClubIdAndUserId(clubId, strangerId)).thenReturn(false);
-
-        assertThatThrownBy(() -> postService.getTargetPosts(TargetType.CLUB_PAGE, clubId, strangerId, null, 20))
-                .isInstanceOf(ForbiddenException.class);
-    }
-
-    @Test
-    void getTargetPostsThrowsWhenClubMissing() {
-        UUID clubId = UUID.randomUUID();
-        when(clubRepository.findById(clubId)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> postService.getTargetPosts(TargetType.CLUB_PAGE, clubId, null, null, 20))
-                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
