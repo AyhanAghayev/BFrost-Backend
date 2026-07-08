@@ -17,26 +17,8 @@ jobs:
       fail-fast: false
       matrix:
         java: [17, 21]
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: bfrost
-          POSTGRES_USER: bfrost
-          POSTGRES_PASSWORD: bfrost
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
-      SERVER_PORT: ${{ vars.SERVER_PORT }}
-      SPRING_PROFILES_ACTIVE: ${{ secrets.APP_ENV }}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/bfrost
-      SPRING_DATASOURCE_USERNAME: bfrost
-      SPRING_DATASOURCE_PASSWORD: bfrost
+      SPRING_PROFILES_ACTIVE: test
     steps:
       - name: Checkout the code
         uses: actions/checkout@v4
