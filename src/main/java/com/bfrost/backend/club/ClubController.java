@@ -1,10 +1,7 @@
 package com.bfrost.backend.club;
 
 import com.bfrost.backend.auth.BFrostUserDetails;
-import com.bfrost.backend.club.dto.ClubDto;
-import com.bfrost.backend.club.dto.CreateClubRequest;
-import com.bfrost.backend.club.dto.MemberDto;
-import com.bfrost.backend.club.dto.UpdateClubRequest;
+import com.bfrost.backend.club.dto.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -52,7 +49,11 @@ public class ClubController {
         return clubService.update(slug, principal.userId(), req);
     }
 
-
+    @PostMapping("/{clubId}/join")
+    public JoinResultDto join(@PathVariable UUID clubId,
+                                                  @AuthenticationPrincipal BFrostUserDetails principal) {
+        return clubService.join(clubId, principal.userId());
+    }
 
     @DeleteMapping("/{clubId}/join")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -67,8 +68,8 @@ public class ClubController {
     }
 
     @GetMapping("/{clubId}/requests")
-    public List<com.bfrost.backend.club.dto.JoinRequestDto> requests(@PathVariable UUID clubId,
-                                                             @AuthenticationPrincipal BFrostUserDetails principal) {
+    public List<JoinRequestDto> requests(@PathVariable UUID clubId,
+                                         @AuthenticationPrincipal BFrostUserDetails principal) {
         return clubService.getPendingRequests(clubId, principal.userId());
     }
 

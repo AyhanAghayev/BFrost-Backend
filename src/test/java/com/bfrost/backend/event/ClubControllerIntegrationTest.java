@@ -1,4 +1,4 @@
-package com.bfrost.backend.club;
+package com.bfrost.backend.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
