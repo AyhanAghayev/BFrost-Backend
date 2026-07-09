@@ -16,6 +16,7 @@ public record UserProfileDto(
     String  university,
     String  department,
     boolean verified,
+    String  role,
     long    followerCount,
     long    followingCount,
     boolean isFollowedByCurrentUser,
@@ -25,7 +26,7 @@ public record UserProfileDto(
         return new UserProfileDto(
             u.getId(), u.getUsername(), includeEmail ? u.getEmail() : null, u.getDisplayName(), u.getBio(),
             u.getProfilePictureUrl(), u.getBackgroundUrl(), u.getUniversity(),
-            u.getDepartment(), u.isVerified(), followers, following, isFollowed,
+            u.getDepartment(), u.isVerified(), u.getRole().name(), followers, following, isFollowed,
             u.getCreatedAt()
         );
     }

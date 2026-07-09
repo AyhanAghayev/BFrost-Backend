@@ -1,13 +1,12 @@
 package com.bfrost.backend.club;
 
-
-
-import com.bfrost.backend.club.dto.*;
+import com.bfrost.backend.club.dto.ClubDto;
+import com.bfrost.backend.club.dto.CreateClubRequest;
+import com.bfrost.backend.club.dto.UpdateClubRequest;
+import com.bfrost.backend.club.dto.MemberDto;
 import com.bfrost.backend.common.exception.ConflictException;
 import com.bfrost.backend.common.exception.ForbiddenException;
 import com.bfrost.backend.common.exception.ResourceNotFoundException;
-import com.bfrost.backend.notification.NotificationService;
-import com.bfrost.backend.notification.NotificationType;
 import com.bfrost.backend.user.User;
 import com.bfrost.backend.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,11 +24,17 @@ public class ClubService {
     private final MembershipRepository membershipRepository;
     private final MembershipRequestRepository membershipRequestRepository;
     private final UserRepository userRepository;
-    private final NotificationService notificationService;
+    private final com.bfrost.backend.notification.NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public ClubDto getClub(String identifier, UUID currentUserId) {
-        return buildDto(resolveClub(identifier), currentUserId);
+        Club club = resolveClub(identifier);
+        // A pending (not-yet-approved) club is only visible to its owner.
+        if (club.getStatus() == ClubStatus.PENDING
+                && (currentUserId == null || !club.getOwner().getId().equals(currentUserId))) {
+            throw new ResourceNotFoundException("Club not found: " + identifier);
+        }
+        return buildDto(club, currentUserId);
     }
 
     private Club resolveClub(String identifier) {
@@ -83,6 +88,7 @@ public class ClubService {
             throw new ConflictException("Slug already taken: " + req.slug());
         }
         User owner = userRepository.getReferenceById(ownerId);
+        ClubStatus status = req.isPublic() ? ClubStatus.PENDING : ClubStatus.APPROVED;
         Club club = Club.builder()
                 .name(req.name())
                 .slug(req.slug())
@@ -90,6 +96,7 @@ public class ClubService {
                 .owner(owner)
                 .isPublic(req.isPublic())
                 .category(req.category())
+                .status(status)
                 .tags(req.tags() != null ? req.tags() : new java.util.HashSet<>())
                 .build();
         clubRepository.save(club);
@@ -102,8 +109,37 @@ public class ClubService {
         return buildDto(club, ownerId);
     }
 
+    @Transactional(readOnly = true)
+    public List<ClubDto> getPendingClubs(UUID adminId) {
+        return clubRepository.findByStatusOrderByCreatedAtDesc(ClubStatus.PENDING).stream()
+                .map(c -> buildDto(c, adminId))
+                .toList();
+    }
+
     @Transactional
-    public JoinResultDto join(UUID clubId, UUID userId) {
+    public ClubDto approveClub(UUID clubId, UUID adminId) {
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(() -> new ResourceNotFoundException("Club not found"));
+        club.setStatus(ClubStatus.APPROVED);
+        clubRepository.save(club);
+        notificationService.push(club.getOwner().getId(), adminId,
+                com.bfrost.backend.notification.NotificationType.CLUB_APPROVED, club.getId(), "club",
+                "approved your club " + club.getName());
+        return buildDto(club, adminId);
+    }
+
+    @Transactional
+    public void rejectClub(UUID clubId, UUID adminId) {
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(() -> new ResourceNotFoundException("Club not found"));
+        notificationService.push(club.getOwner().getId(), adminId,
+                com.bfrost.backend.notification.NotificationType.CLUB_REJECTED, null, "club",
+                "rejected your club request for " + club.getName());
+        clubRepository.delete(club);
+    }
+
+    @Transactional
+    public com.bfrost.backend.club.dto.JoinResultDto join(UUID clubId, UUID userId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club not found"));
         if (membershipRepository.existsByClubIdAndUserId(clubId, userId)) {
@@ -112,8 +148,12 @@ public class ClubService {
         User user = userRepository.getReferenceById(userId);
         if (club.isPublic()) {
             membershipRepository.save(Membership.builder().club(club).user(user).build());
-            return new JoinResultDto("JOINED");
+            return new com.bfrost.backend.club.dto.JoinResultDto("JOINED");
         }
+        // A user can only have one request row per club (unique club_id+user_id). Reuse
+        // any existing row — a leftover APPROVED/REJECTED request from a previous cycle
+        // is reset to PENDING rather than inserting a duplicate (which would violate the
+        // unique constraint).
         MembershipRequest request = membershipRequestRepository.findByClubIdAndUserId(clubId, userId)
                 .orElseGet(() -> MembershipRequest.builder().club(club).user(user).build());
         if (request.getStatus() == RequestStatus.PENDING && request.getId() != null) {
@@ -122,16 +162,16 @@ public class ClubService {
         request.setStatus(RequestStatus.PENDING);
         membershipRequestRepository.save(request);
         notificationService.push(club.getOwner().getId(), userId,
-                NotificationType.JOIN_REQUEST, club.getId(), "club",
+                com.bfrost.backend.notification.NotificationType.JOIN_REQUEST, club.getId(), "club",
                 "requested to join " + club.getName());
-        return new JoinResultDto("REQUESTED");
+        return new com.bfrost.backend.club.dto.JoinResultDto("REQUESTED");
     }
 
     @Transactional(readOnly = true)
-    public List<JoinRequestDto> getPendingRequests(UUID clubId, UUID currentUserId) {
+    public List<com.bfrost.backend.club.dto.JoinRequestDto> getPendingRequests(UUID clubId, UUID currentUserId) {
         requireModerator(clubId, currentUserId);
         return membershipRequestRepository.findByClubIdAndStatus(clubId, RequestStatus.PENDING).stream()
-                .map(JoinRequestDto::from)
+                .map(com.bfrost.backend.club.dto.JoinRequestDto::from)
                 .toList();
     }
 

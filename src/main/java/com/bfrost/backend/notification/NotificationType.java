@@ -4,5 +4,7 @@ public enum NotificationType {
     FOLLOW,
     LIKE,
     COMMENT,
-    JOIN_REQUEST
+    JOIN_REQUEST,
+    CLUB_APPROVED,
+    CLUB_REJECTED
 }

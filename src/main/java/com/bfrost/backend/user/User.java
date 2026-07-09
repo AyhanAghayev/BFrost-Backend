@@ -50,6 +50,11 @@ public class User {
     @Builder.Default
     private boolean verified = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private Role role = Role.USER;
+
     @Column(name = "notify_follow", nullable = false)
     @Builder.Default
     private boolean notifyFollow = true;
