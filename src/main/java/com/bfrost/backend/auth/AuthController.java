@@ -33,6 +33,9 @@ public class AuthController {
     @Value("${bfrost.jwt.cookie-secure}")
     private boolean cookieSecure;
 
+    @Value("${bfrost.jwt.cookie-same-site}")
+    private String cookieSameSite;
+
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public AuthResponse register(@Valid @RequestBody RegisterRequest req, HttpServletResponse response) {
@@ -74,7 +77,7 @@ public class AuthController {
         ResponseCookie cookie = ResponseCookie.from("accessToken", token)
                 .httpOnly(true)
                 .secure(cookieSecure)
-                .sameSite("Lax")
+                .sameSite(cookieSameSite)
                 .path("/")
                 .maxAge(accessTokenExpiryMs / 1000)
                 .build();
@@ -85,7 +88,7 @@ public class AuthController {
         ResponseCookie cookie = ResponseCookie.from("accessToken", "")
                 .httpOnly(true)
                 .secure(cookieSecure)
-                .sameSite("Lax")
+                .sameSite(cookieSameSite)
                 .path("/")
                 .maxAge(0)
                 .build();
@@ -96,7 +99,7 @@ public class AuthController {
         ResponseCookie cookie = ResponseCookie.from("refreshToken", token)
                 .httpOnly(true)
                 .secure(cookieSecure)
-                .sameSite("Lax")
+                .sameSite(cookieSameSite)
                 .path("/api/v1/auth")
                 .maxAge(refreshTokenExpiryMs / 1000)
                 .build();
@@ -107,7 +110,7 @@ public class AuthController {
         ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
                 .httpOnly(true)
                 .secure(cookieSecure)
-                .sameSite("Lax")
+                .sameSite(cookieSameSite)
                 .path("/api/v1/auth")
                 .maxAge(0)
                 .build();
