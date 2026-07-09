@@ -37,6 +37,11 @@ public class Club {
     @Builder.Default
     private boolean isPublic = true;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private ClubStatus status = ClubStatus.PENDING;
+
     @Column(nullable = false, length = 50)
     private String category;
 
