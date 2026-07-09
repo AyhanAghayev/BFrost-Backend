@@ -14,6 +14,7 @@ public record ClubDto(
         UUID    ownerId,
         boolean isPublic,
         String  category,
+        String status,
         String  coverImageUrl,
         String  logoUrl,
         Set<String> tags,
@@ -26,7 +27,7 @@ public record ClubDto(
     public static ClubDto from(Club c, long memberCount, boolean isMember, String memberRole, boolean hasPendingRequest) {
         return new ClubDto(
                 c.getId(), c.getName(), c.getSlug(), c.getDescription(),
-                c.getOwner().getId(), c.isPublic(), c.getCategory(),
+                c.getOwner().getId(), c.isPublic(), c.getCategory(), c.getStatus().name(),
                 c.getCoverImageUrl(), c.getLogoUrl(), c.getTags(),
                 memberCount, isMember, memberRole, hasPendingRequest, c.getCreatedAt()
         );
