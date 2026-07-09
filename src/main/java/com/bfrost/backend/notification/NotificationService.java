@@ -56,6 +56,7 @@ public class NotificationService {
             case LIKE         -> u.isNotifyLike();
             case COMMENT      -> u.isNotifyComment();
             case JOIN_REQUEST -> u.isNotifyJoinRequest();
+            case CLUB_APPROVED, CLUB_REJECTED -> true;
         };
     }
 }
