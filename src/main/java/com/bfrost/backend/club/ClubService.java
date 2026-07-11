@@ -24,6 +24,7 @@ public class ClubService {
     private final MembershipRepository membershipRepository;
     private final MembershipRequestRepository membershipRequestRepository;
     private final UserRepository userRepository;
+    private final com.bfrost.backend.wiki.WikiArticleRepository wikiArticleRepository;
     private final com.bfrost.backend.notification.NotificationService notificationService;
 
     @Transactional(readOnly = true)
@@ -132,6 +133,7 @@ public class ClubService {
     public void rejectClub(UUID clubId, UUID adminId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club not found"));
+        // Notify the owner before the club (and its memberships) are removed.
         notificationService.push(club.getOwner().getId(), adminId,
                 com.bfrost.backend.notification.NotificationType.CLUB_REJECTED, null, "club",
                 "rejected your club request for " + club.getName());
@@ -269,6 +271,7 @@ public class ClubService {
 
     private ClubDto buildDto(Club club, UUID currentUserId) {
         long memberCount = membershipRepository.countByClubId(club.getId());
+        long articleCount = wikiArticleRepository.countByClubId(club.getId());
         boolean isMember = false;
         String role = null;
         boolean hasPendingRequest = false;
@@ -281,6 +284,6 @@ public class ClubService {
                         .existsByClubIdAndUserIdAndStatus(club.getId(), currentUserId, RequestStatus.PENDING);
             }
         }
-        return ClubDto.from(club, memberCount, isMember, role, hasPendingRequest);
+        return ClubDto.from(club, memberCount, articleCount, isMember, role, hasPendingRequest);
     }
 }
