@@ -4,8 +4,8 @@ import com.bfrost.backend.club.MemberRole;
 import com.bfrost.backend.club.MembershipRepository;
 import com.bfrost.backend.common.exception.ForbiddenException;
 import com.bfrost.backend.wiki.dto.AiDto;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -53,7 +53,9 @@ public class WikiAiService {
                 + "text, at most 280 characters) and \"body\" (GitHub-flavored markdown, no top-level "
                 + "H1 heading). Keep it practical and well-structured.";
         JsonNode json = completeAsJson(system, "Topic: " + topic, 900);
-        return new AiDto.DraftResponse(json.path("summary").asText(""), json.path("body").asText(""));
+        return new AiDto.DraftResponse(
+                json.path("summary").asString(""),
+                json.path("body").asString(""));
     }
 
     public AiDto.SummaryResponse summarize(UUID clubId, UUID userId, String body) {
@@ -67,12 +69,12 @@ public class WikiAiService {
 
     private String completeText(String system, String user, int maxTokens) {
         JsonNode resp = call(buildBody(system, user, maxTokens, false));
-        return resp.path("choices").path(0).path("message").path("content").asText("");
+        return resp.path("choices").path(0).path("message").path("content").asString("");
     }
 
     private JsonNode completeAsJson(String system, String user, int maxTokens) {
         JsonNode resp = call(buildBody(system, user, maxTokens, true));
-        String content = resp.path("choices").path(0).path("message").path("content").asText("{}");
+        String content = resp.path("choices").path(0).path("message").path("content").asString("{}");
         try {
             return objectMapper.readTree(content);
         } catch (Exception e) {
