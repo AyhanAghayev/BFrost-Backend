@@ -21,8 +21,16 @@ public class User {
     @Column(nullable = false, unique = true, length = 255)
     private String email;
 
-    @Column(name = "password_hash", nullable = false)
+    @Column(name = "password_hash")
     private String passwordHash;
+
+    @Column(name = "google_id", unique = true)
+    private String googleId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "registration_status", nullable = false, length = 20)
+    @Builder.Default
+    private RegistrationStatus registrationStatus = RegistrationStatus.COMPLETE;
 
     @Column(name = "email_verified", nullable = false)
     @Builder.Default

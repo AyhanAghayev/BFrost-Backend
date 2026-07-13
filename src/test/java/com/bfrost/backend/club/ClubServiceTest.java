@@ -8,6 +8,7 @@ import com.bfrost.backend.common.exception.ResourceNotFoundException;
 import com.bfrost.backend.notification.NotificationService;
 import com.bfrost.backend.user.User;
 import com.bfrost.backend.user.UserRepository;
+import com.bfrost.backend.wiki.WikiArticleRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,13 +34,14 @@ class ClubServiceTest {
     @Mock private MembershipRequestRepository membershipRequestRepository;
     @Mock private UserRepository userRepository;
     @Mock private NotificationService notificationService;
+    @Mock private WikiArticleRepository wikiArticleRepository;
 
     private ClubService clubService;
 
     @BeforeEach
     void setUp() {
         clubService = new ClubService(clubRepository, membershipRepository, membershipRequestRepository,
-                userRepository, notificationService);
+                userRepository, wikiArticleRepository, notificationService);
     }
 
     private Club aClub(boolean isPublic) {
