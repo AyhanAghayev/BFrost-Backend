@@ -32,6 +32,10 @@ public class Rsvp {
     @Column(name = "responded_at", nullable = false)
     private Instant respondedAt;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean attended = false;
+
     @PrePersist
     void prePersist() { this.respondedAt = Instant.now(); }
 }
