@@ -1,8 +1,10 @@
 package com.bfrost.backend.event.dto;
 
 import com.bfrost.backend.event.ClubEvent;
+import com.bfrost.backend.event.EventQuestion;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record EventDto(
@@ -20,16 +22,21 @@ public record EventDto(
         Integer maxMembers,
         UUID    createdBy,
         long    attendingCount,
+        long    waitlistCount,
         String  currentUserRsvp,
+        List<RegistrationDto.QuestionDto> questions,
         Instant createdAt
 ) {
-    public static EventDto from(ClubEvent e, long attending, String rsvp) {
+    public static EventDto from(ClubEvent e, long attending, long waitlist, String rsvp,
+                                List<EventQuestion> questions) {
         return new EventDto(
                 e.getId(), e.getClub().getId(), e.getClub().getSlug(), e.getClub().getName(),
                 e.getTitle(), e.getDescription(),
                 e.getCoverImageUrl(), e.getFormat().name(), e.getLocation(),
                 e.getStartTime(), e.getEndTime(), e.getMaxMembers(),
-                e.getCreatedBy().getId(), attending, rsvp, e.getCreatedAt()
+                e.getCreatedBy().getId(), attending, waitlist, rsvp,
+                questions.stream().map(RegistrationDto.QuestionDto::from).toList(),
+                e.getCreatedAt()
         );
     }
 }

@@ -4,6 +4,7 @@ import com.bfrost.backend.auth.BFrostUserDetails;
 import com.bfrost.backend.event.dto.AttendeeDto;
 import com.bfrost.backend.event.dto.CreateEventRequest;
 import com.bfrost.backend.event.dto.EventDto;
+import com.bfrost.backend.event.dto.RegistrationDto;
 import com.bfrost.backend.event.dto.UpdateEventRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -69,10 +70,27 @@ public class EventController {
     }
 
     @PostMapping("/events/{eventId}/rsvp")
+    public RegistrationDto.RsvpResultDto rsvp(@PathVariable UUID eventId,
+                                              @Valid @RequestBody RegistrationDto.RsvpRequest req,
+                                              @AuthenticationPrincipal BFrostUserDetails principal) {
+        return eventService.rsvp(eventId, principal.userId(), req);
+    }
+
+    // Organizer view of registrants + their form answers.
+    @GetMapping("/events/{eventId}/responses")
+    public List<RegistrationDto.ResponseDto> responses(@PathVariable UUID eventId,
+                                                       @AuthenticationPrincipal BFrostUserDetails principal) {
+        return eventService.getResponses(eventId, principal.userId());
+    }
+
+    public record CheckInRequest(boolean attended) {}
+
+    @PostMapping("/events/{eventId}/attendees/{userId}/checkin")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void rsvp(@PathVariable UUID eventId,
-                     @RequestParam RsvpStatus status,
-                     @AuthenticationPrincipal BFrostUserDetails principal) {
-        eventService.rsvp(eventId, principal.userId(), status);
+    public void checkIn(@PathVariable UUID eventId,
+                        @PathVariable("userId") UUID targetUserId,
+                        @RequestBody CheckInRequest req,
+                        @AuthenticationPrincipal BFrostUserDetails principal) {
+        eventService.checkIn(eventId, targetUserId, principal.userId(), req.attended());
     }
 }

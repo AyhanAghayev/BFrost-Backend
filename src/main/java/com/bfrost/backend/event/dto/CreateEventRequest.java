@@ -1,10 +1,12 @@
 package com.bfrost.backend.event.dto;
 
 import com.bfrost.backend.event.EventFormat;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.Instant;
+import java.util.List;
 
 public record CreateEventRequest(
         @NotBlank String      title,
@@ -14,5 +16,6 @@ public record CreateEventRequest(
         @NotNull Instant      startTime,
         Instant               endTime,
         Integer               maxMembers,
-        String                coverImageUrl
+        String                coverImageUrl,
+        @Valid List<RegistrationDto.QuestionInput> questions
 ) {}
