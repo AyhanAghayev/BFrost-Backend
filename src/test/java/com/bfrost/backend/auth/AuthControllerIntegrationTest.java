@@ -1,5 +1,8 @@
 package com.bfrost.backend.auth;
 
+import com.bfrost.backend.user.RegistrationStatus;
+import com.bfrost.backend.user.User;
+import com.bfrost.backend.user.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -22,6 +26,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthControllerIntegrationTest {
 
     @Autowired private MockMvc mockMvc;
+    @Autowired private UserRepository userRepository;
+    @Autowired private AuthService authService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private String uniqueSuffix() {
@@ -120,6 +126,43 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
+    void completeRegistrationSetsPasswordFinalizesAccountAndIssuesSessionCookies() throws Exception {
+        String suffix = uniqueSuffix();
+        User pendingUser = User.builder()
+            .username("pending" + suffix)
+            .email("pending" + suffix + "@example.com")
+            .googleId("google-" + suffix)
+            .emailVerified(true)
+            .registrationStatus(RegistrationStatus.PENDING)
+            .displayName("Pending User")
+            .build();
+        userRepository.save(pendingUser);
+        String token = authService.issuePendingRegistrationToken(pendingUser);
+
+        String body = objectMapper.writeValueAsString(new CompleteRegistrationPayload(token, "password123"));
+
+        mockMvc.perform(post("/api/v1/auth/complete-registration").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.username").value("pending" + suffix))
+            .andExpect(jsonPath("$.accessToken").doesNotExist())
+            .andExpect(cookie().exists("accessToken"))
+            .andExpect(cookie().httpOnly("accessToken", true))
+            .andExpect(cookie().exists("refreshToken"));
+
+        User finalized = userRepository.findById(pendingUser.getId()).orElseThrow();
+        assertThat(finalized.getRegistrationStatus()).isEqualTo(RegistrationStatus.COMPLETE);
+        assertThat(finalized.getPasswordHash()).isNotNull();
+    }
+
+    @Test
+    void completeRegistrationRejectsInvalidToken() throws Exception {
+        String body = objectMapper.writeValueAsString(new CompleteRegistrationPayload("not-a-real-token", "password123"));
+
+        mockMvc.perform(post("/api/v1/auth/complete-registration").contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void logoutWithoutTokenStillClearsCookies() throws Exception {
         mockMvc.perform(post("/api/v1/auth/logout"))
             .andExpect(status().isNoContent())
@@ -129,4 +172,5 @@ class AuthControllerIntegrationTest {
 
     private record RegisterPayload(String username, String email, String password, String displayName) {}
     private record LoginPayload(String email, String password) {}
+    private record CompleteRegistrationPayload(String token, String password) {}
 }

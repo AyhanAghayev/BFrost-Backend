@@ -35,7 +35,6 @@ class ClubServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private NotificationService notificationService;
     @Mock private WikiArticleRepository wikiArticleRepository;
-
     private ClubService clubService;
 
     @BeforeEach

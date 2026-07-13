@@ -3,6 +3,7 @@ package com.bfrost.backend.auth;
 import com.bfrost.backend.auth.dto.LoginRequest;
 import com.bfrost.backend.auth.dto.RegisterRequest;
 import com.bfrost.backend.common.exception.ConflictException;
+import com.bfrost.backend.user.RegistrationStatus;
 import com.bfrost.backend.user.User;
 import com.bfrost.backend.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +30,7 @@ class AuthServiceTest {
 
     @Mock private UserRepository userRepository;
     @Mock private RefreshTokenRepository refreshTokenRepository;
+    @Mock private PendingRegistrationTokenRepository pendingRegistrationTokenRepository;
     @Mock private JwtService jwtService;
     @Mock private PasswordEncoder passwordEncoder;
 
@@ -36,8 +38,9 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(userRepository, refreshTokenRepository, jwtService, passwordEncoder);
+        authService = new AuthService(userRepository, refreshTokenRepository, pendingRegistrationTokenRepository, jwtService, passwordEncoder);
         ReflectionTestUtils.setField(authService, "refreshTokenExpiryMs", 604_800_000L);
+        ReflectionTestUtils.setField(authService, "registrationTokenExpiryMs", 900_000L);
     }
 
     @Test
@@ -111,6 +114,70 @@ class AuthServiceTest {
         when(passwordEncoder.matches(req.password(), "hashed")).thenReturn(false);
 
         assertThatThrownBy(() -> authService.login(req)).isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    void loginRejectsPendingOAuthUserWithoutPassword() {
+        User user = User.builder().id(UUID.randomUUID()).username("alice").email("alice@example.com")
+            .passwordHash(null).registrationStatus(RegistrationStatus.PENDING).displayName("Alice").build();
+        LoginRequest req = new LoginRequest("alice@example.com", "whatever");
+        when(userRepository.findByEmail(req.email())).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authService.login(req)).isInstanceOf(BadCredentialsException.class);
+        verify(passwordEncoder, never()).matches(any(), any());
+    }
+
+    @Test
+    void issuePendingRegistrationTokenReplacesAnyExistingTokenForUser() {
+        User user = User.builder().id(UUID.randomUUID()).username("alice").displayName("Alice").build();
+
+        String token = authService.issuePendingRegistrationToken(user);
+
+        assertThat(token).isNotBlank();
+        verify(pendingRegistrationTokenRepository).deleteAllByUserId(user.getId());
+        ArgumentCaptor<PendingRegistrationToken> captor = ArgumentCaptor.forClass(PendingRegistrationToken.class);
+        verify(pendingRegistrationTokenRepository).save(captor.capture());
+        assertThat(captor.getValue().getToken()).isEqualTo(token);
+        assertThat(captor.getValue().getUser()).isEqualTo(user);
+    }
+
+    @Test
+    void completeRegistrationHashesPasswordFinalizesUserAndIssuesTokens() {
+        User user = User.builder().id(UUID.randomUUID()).username("alice").email("alice@example.com")
+            .registrationStatus(RegistrationStatus.PENDING).displayName("Alice").build();
+        PendingRegistrationToken prt = PendingRegistrationToken.builder().token("reg-token").user(user)
+            .expiresAt(Instant.now().plusSeconds(3600)).build();
+        when(pendingRegistrationTokenRepository.findByToken("reg-token")).thenReturn(Optional.of(prt));
+        when(passwordEncoder.encode("newpassword")).thenReturn("hashed");
+        when(jwtService.generateAccessToken(user.getId(), "alice")).thenReturn("access-token");
+
+        AuthResult result = authService.completeRegistration("reg-token", "newpassword");
+
+        assertThat(result.accessToken()).isEqualTo("access-token");
+        assertThat(user.getPasswordHash()).isEqualTo("hashed");
+        assertThat(user.getRegistrationStatus()).isEqualTo(RegistrationStatus.COMPLETE);
+        verify(pendingRegistrationTokenRepository).deleteAllByUserId(user.getId());
+        verify(refreshTokenRepository).save(any(RefreshToken.class));
+    }
+
+    @Test
+    void completeRegistrationRejectsUnknownToken() {
+        when(pendingRegistrationTokenRepository.findByToken("bad-token")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.completeRegistration("bad-token", "newpassword"))
+            .isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    void completeRegistrationRejectsExpiredTokenAndDeletesIt() {
+        User user = User.builder().id(UUID.randomUUID()).username("alice").registrationStatus(RegistrationStatus.PENDING).build();
+        PendingRegistrationToken prt = PendingRegistrationToken.builder().token("expired").user(user)
+            .expiresAt(Instant.now().minusSeconds(3600)).build();
+        when(pendingRegistrationTokenRepository.findByToken("expired")).thenReturn(Optional.of(prt));
+
+        assertThatThrownBy(() -> authService.completeRegistration("expired", "newpassword"))
+            .isInstanceOf(BadCredentialsException.class);
+        verify(pendingRegistrationTokenRepository).delete(prt);
     }
 
     @Test
