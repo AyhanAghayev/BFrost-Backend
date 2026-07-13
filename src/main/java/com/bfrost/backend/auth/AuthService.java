@@ -4,6 +4,7 @@ import com.bfrost.backend.auth.dto.AuthResponse;
 import com.bfrost.backend.auth.dto.LoginRequest;
 import com.bfrost.backend.auth.dto.RegisterRequest;
 import com.bfrost.backend.common.exception.ConflictException;
+import com.bfrost.backend.user.RegistrationStatus;
 import com.bfrost.backend.user.User;
 import com.bfrost.backend.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,11 +23,15 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final PendingRegistrationTokenRepository pendingRegistrationTokenRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${bfrost.jwt.refresh-token-expiry-ms}")
     private long refreshTokenExpiryMs;
+
+    @Value("${bfrost.oauth2.registration-token-expiry-ms}")
+    private long registrationTokenExpiryMs;
 
     @Transactional
     public AuthResult register(RegisterRequest req) {
@@ -50,7 +55,7 @@ public class AuthService {
     public AuthResult login(LoginRequest req) {
         User user = userRepository.findByEmail(req.email())
                 .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
-        if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {
+        if (user.getPasswordHash() == null || !passwordEncoder.matches(req.password(), user.getPasswordHash())) {
             throw new BadCredentialsException("Invalid credentials");
         }
         user.setLastLoginAt(Instant.now());
@@ -78,6 +83,40 @@ public class AuthService {
     @Transactional
     public void logout(UUID userId) {
         refreshTokenRepository.deleteAllByUserId(userId);
+    }
+
+    @Transactional
+    public AuthResult issueTokensFor(User user) {
+        return buildResult(user);
+    }
+
+    @Transactional
+    public String issuePendingRegistrationToken(User user) {
+        pendingRegistrationTokenRepository.deleteAllByUserId(user.getId());
+        String token = UUID.randomUUID().toString();
+        PendingRegistrationToken prt = PendingRegistrationToken.builder()
+                .user(user)
+                .token(token)
+                .expiresAt(Instant.now().plusMillis(registrationTokenExpiryMs))
+                .build();
+        pendingRegistrationTokenRepository.save(prt);
+        return token;
+    }
+
+    @Transactional
+    public AuthResult completeRegistration(String token, String rawPassword) {
+        PendingRegistrationToken prt = pendingRegistrationTokenRepository.findByToken(token)
+                .orElseThrow(() -> new BadCredentialsException("Invalid or expired registration token"));
+        if (prt.isExpired()) {
+            pendingRegistrationTokenRepository.delete(prt);
+            throw new BadCredentialsException("Invalid or expired registration token");
+        }
+
+        User user = prt.getUser();
+        user.setPasswordHash(passwordEncoder.encode(rawPassword));
+        user.setRegistrationStatus(RegistrationStatus.COMPLETE);
+        pendingRegistrationTokenRepository.deleteAllByUserId(user.getId());
+        return buildResult(user);
     }
 
     private AuthResult buildResult(User user) {

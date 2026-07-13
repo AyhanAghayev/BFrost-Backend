@@ -73,10 +73,25 @@ CREATE INDEX idx_saved_posts_post ON saved_posts(post_id);
 
 ALTER TABLE users ADD COLUMN notify_follow BOOLEAN NOT NULL DEFAULT TRUE, ADD COLUMN notify_like BOOLEAN NOT NULL DEFAULT TRUE, ADD COLUMN notify_comment BOOLEAN NOT NULL DEFAULT TRUE, ADD COLUMN notify_join_request BOOLEAN NOT NULL DEFAULT TRUE;
 
-ALTER TABLE clubs DROP CONSTRAINT clubs_owner_id_fkey;
-ALTER TABLE clubs ADD CONSTRAINT clubs_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE events DROP CONSTRAINT events_created_by_fkey;
-ALTER TABLE events ADD CONSTRAINT events_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE clubs
+DROP CONSTRAINT clubs_owner_id_fkey,
+  ADD CONSTRAINT clubs_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE events
+DROP CONSTRAINT events_created_by_fkey,
+  ADD CONSTRAINT events_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE;
 
 CREATE TABLE conversation_reads (user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, last_read_at TIMESTAMP NOT NULL DEFAULT NOW(), PRIMARY KEY (user_id, conversation_id));
 CREATE INDEX idx_conversation_reads_user ON conversation_reads(user_id);
+
+ALTER TABLE users
+    ALTER COLUMN password_hash DROP NOT NULL,
+  ADD COLUMN google_id VARCHAR(255) UNIQUE;
+CREATE INDEX idx_users_google_id ON users(google_id);
+
+ALTER TABLE users ADD COLUMN registration_status VARCHAR(20) DEFAULT 'COMPLETE';
+UPDATE users SET registration_status = 'COMPLETE' WHERE registration_status IS NULL;
+ALTER TABLE users ALTER COLUMN registration_status SET NOT NULL;
+
+CREATE TABLE pending_registration_tokens (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, token VARCHAR(255) UNIQUE NOT NULL, expires_at TIMESTAMP NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT NOW());
+CREATE INDEX idx_pending_registration_tokens_token ON pending_registration_tokens(token);
+CREATE INDEX idx_pending_registration_tokens_user ON pending_registration_tokens(user_id);
