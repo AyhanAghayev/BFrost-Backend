@@ -26,6 +26,7 @@ linked below.
 | Backend repository | [link](https://github.com/AyhanAghayev/BFrost-Backend)  |
 | Frontend repository | [link](https://github.com/AyhanAghayev/BFrost-Frontend) |
 | Live application | [link](https://b-frost.vercel.app)                      |
+| Project board (Kanban) | [link](https://b-frost-management-lilac.vercel.app/)    |
 | API documentation (Swagger UI) | `/swagger-ui.html` on the deployed backend              |
 
 ## Technologies Used
@@ -83,6 +84,282 @@ Key design points:
 - Database schema changes are managed exclusively through Flyway migrations
   in `src/main/resources/db/migration`; Hibernate DDL auto-generation is
   disabled (`ddl-auto: validate`).
+
+### Database Schema
+
+Entity-relationship diagram of the PostgreSQL schema (final state after Flyway
+migrations V1–V11). An interactive version is available on
+[mermaid.ai](https://mermaid.ai/d/1a58c3d6-7f06-4dc2-92a5-fd39c5ea1bc0)
+
+```mermaid
+erDiagram
+    users ||--o{ refresh_tokens : "has"
+    users ||--o{ pending_registration_tokens : "has"
+    users ||--o{ follows : "follower"
+    users ||--o{ follows : "followee"
+    users ||--o{ clubs : "owns"
+    users ||--o{ memberships : "joins"
+    users ||--o{ membership_requests : "requests"
+    users ||--o{ posts : "authors"
+    users ||--o{ poll_votes : "casts"
+    users ||--o{ comments : "writes"
+    users ||--o{ reactions : "reacts"
+    users ||--o{ saved_posts : "saves"
+    users ||--o{ events : "creates"
+    users ||--o{ rsvps : "responds"
+    users ||--o{ conversations : "user_a"
+    users ||--o{ conversations : "user_b"
+    users ||--o{ messages : "sends"
+    users ||--o{ conversation_clearances : "clears"
+    users ||--o{ conversation_reads : "reads"
+    users ||--o{ notifications : "recipient"
+    users ||--o{ notifications : "actor"
+    users ||--o{ wiki_articles : "authors"
+
+    clubs ||--o{ club_tags : "tagged"
+    clubs ||--o{ memberships : "has"
+    clubs ||--o{ membership_requests : "has"
+    clubs ||--o{ events : "hosts"
+    clubs ||--o{ wiki_articles : "documents"
+
+    posts ||--o{ poll_options : "has"
+    posts ||--o{ comments : "has"
+    posts ||--o{ reactions : "has"
+    posts ||--o{ saved_posts : "saved_in"
+    poll_options ||--o{ poll_votes : "receives"
+
+    events ||--o{ rsvps : "has"
+    events ||--o{ event_questions : "asks"
+    event_questions ||--o{ event_question_options : "offers"
+    event_questions ||--o{ rsvp_answers : "answered_by"
+    rsvps ||--o{ rsvp_answers : "provides"
+
+    conversations ||--o{ messages : "contains"
+    conversations ||--o{ conversation_clearances : "cleared_by"
+    conversations ||--o{ conversation_reads : "read_by"
+
+    users {
+        uuid id PK
+        varchar username UK
+        varchar email UK
+        varchar password_hash "nullable (OAuth)"
+        varchar google_id UK
+        varchar display_name
+        varchar role "USER | ADMIN"
+        varchar registration_status "PENDING | COMPLETE"
+        boolean is_verified
+        boolean notify_follow
+        boolean notify_like
+        boolean notify_comment
+        boolean notify_join_request
+        tsvector search_vector "generated"
+        timestamp created_at
+        timestamp last_login_at
+    }
+
+    refresh_tokens {
+        uuid id PK
+        uuid user_id FK
+        varchar token UK
+        timestamp expires_at
+    }
+
+    pending_registration_tokens {
+        uuid id PK
+        uuid user_id FK
+        varchar token UK
+        timestamp expires_at
+    }
+
+    follows {
+        uuid id PK
+        uuid follower_id FK
+        uuid followee_id FK
+        timestamp created_at
+    }
+
+    clubs {
+        uuid id PK
+        varchar name
+        varchar slug UK
+        uuid owner_id FK
+        boolean is_public
+        varchar category
+        varchar status "PENDING | APPROVED"
+        tsvector search_vector "generated"
+        timestamp created_at
+    }
+
+    club_tags {
+        uuid club_id PK, FK
+        varchar tag PK
+    }
+
+    memberships {
+        uuid id PK
+        uuid club_id FK
+        uuid user_id FK
+        varchar role "MEMBER | MODERATOR | OWNER"
+        timestamp joined_at
+    }
+
+    membership_requests {
+        uuid id PK
+        uuid club_id FK
+        uuid user_id FK
+        varchar status "PENDING | APPROVED | REJECTED"
+        timestamp created_at
+    }
+
+    posts {
+        uuid id PK
+        uuid author_id FK
+        varchar target_type
+        uuid target_id
+        varchar post_type "TEXT | POLL | LINK"
+        varchar title
+        text body
+        int like_count
+        int dislike_count
+        int comment_count
+        tsvector search_vector "generated"
+        timestamp created_at
+    }
+
+    poll_options {
+        uuid id PK
+        uuid post_id FK
+        varchar option_text
+        int vote_count
+        int position
+    }
+
+    poll_votes {
+        uuid id PK
+        uuid option_id FK
+        uuid user_id FK
+        timestamp created_at
+    }
+
+    comments {
+        uuid id PK
+        uuid post_id FK
+        uuid author_id FK
+        text body
+        timestamp created_at
+    }
+
+    reactions {
+        uuid id PK
+        uuid post_id FK
+        uuid user_id FK
+        varchar reaction_type "LIKE | DISLIKE"
+        timestamp created_at
+    }
+
+    saved_posts {
+        uuid id PK
+        uuid user_id FK
+        uuid post_id FK
+        timestamp created_at
+    }
+
+    events {
+        uuid id PK
+        uuid club_id FK
+        varchar title
+        varchar format "IN_PERSON | ONLINE"
+        text location
+        timestamp start_time
+        timestamp end_time
+        int max_members
+        uuid created_by FK
+        timestamp created_at
+    }
+
+    rsvps {
+        uuid id PK
+        uuid event_id FK
+        uuid user_id FK
+        varchar status "ATTENDING"
+        boolean attended
+        timestamp responded_at
+    }
+
+    event_questions {
+        uuid id PK
+        uuid event_id FK
+        varchar label
+        varchar type "TEXT | SELECT"
+        boolean required
+        int position
+    }
+
+    event_question_options {
+        uuid question_id PK, FK
+        int position PK
+        varchar opt
+    }
+
+    rsvp_answers {
+        uuid id PK
+        uuid rsvp_id FK
+        uuid question_id FK
+        text value
+    }
+
+    conversations {
+        uuid id PK
+        uuid user_a_id FK
+        uuid user_b_id FK
+        timestamp created_at
+    }
+
+    messages {
+        uuid id PK
+        uuid conversation_id FK
+        uuid sender_id FK
+        text body
+        timestamp created_at
+    }
+
+    conversation_clearances {
+        uuid user_id PK, FK
+        uuid conversation_id PK, FK
+        timestamp cleared_at
+    }
+
+    conversation_reads {
+        uuid user_id PK, FK
+        uuid conversation_id PK, FK
+        timestamp last_read_at
+    }
+
+    notifications {
+        uuid id PK
+        uuid recipient_id FK
+        uuid actor_id FK
+        varchar notification_type
+        uuid target_id
+        varchar target_type
+        text message
+        boolean is_read
+        timestamp created_at
+    }
+
+    wiki_articles {
+        uuid id PK
+        uuid club_id FK
+        uuid author_id FK
+        uuid last_editor_id FK "nullable"
+        varchar title
+        varchar summary
+        text body
+        boolean is_featured "unique per club"
+        timestamp created_at
+        timestamp updated_at
+    }
+```
 
 ## Backend Documentation
 
