@@ -19,15 +19,17 @@ public record UserProfileDto(
     String  role,
     long    followerCount,
     long    followingCount,
+    long    clubCount,
     boolean isFollowedByCurrentUser,
     Instant createdAt
 ) {
-    public static UserProfileDto from(User u, long followers, long following, boolean isFollowed, boolean includeEmail) {
+    public static UserProfileDto from(User u, long followers, long following, long clubs, boolean isFollowed, boolean includeEmail) {
         return new UserProfileDto(
-            u.getId(), u.getUsername(), includeEmail ? u.getEmail() : null, u.getDisplayName(), u.getBio(),
-            u.getProfilePictureUrl(), u.getBackgroundUrl(), u.getUniversity(),
-            u.getDepartment(), u.isVerified(), u.getRole().name(), followers, following, isFollowed,
-            u.getCreatedAt()
+                u.getId(), u.getUsername(), includeEmail ? u.getEmail() : null, u.getDisplayName(), u.getBio(),
+                u.getProfilePictureUrl(), u.getBackgroundUrl(), u.getUniversity(),
+                u.getDepartment(), u.isVerified(), u.getRole().name(), followers, following, clubs, isFollowed,
+                u.getCreatedAt()
         );
     }
 }
+

@@ -1,5 +1,6 @@
 package com.bfrost.backend.user;
 
+import com.bfrost.backend.club.MembershipRepository;
 import com.bfrost.backend.notification.NotificationService;
 import com.bfrost.backend.notification.NotificationType;
 import com.bfrost.backend.user.dto.NotificationPrefsDto;
@@ -24,6 +25,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
+    private final MembershipRepository membershipRepository;
     private final NotificationService notificationService;
     private final PasswordEncoder passwordEncoder;
 
@@ -178,9 +180,10 @@ public class UserService {
     private UserProfileDto buildDto(User user, UUID currentUserId) {
         long followers = followRepository.countByFolloweeId(user.getId());
         long following  = followRepository.countByFollowerId(user.getId());
+        long clubs = membershipRepository.countByUserId(user.getId());
         boolean followed = currentUserId != null &&
                 followRepository.existsByFollowerIdAndFolloweeId(currentUserId, user.getId());
         boolean isSelf = currentUserId != null && currentUserId.equals(user.getId());
-        return UserProfileDto.from(user, followers, following, followed, isSelf);
+        return UserProfileDto.from(user, followers, following, clubs, followed, isSelf);
     }
 }
