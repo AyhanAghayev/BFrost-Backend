@@ -27,6 +27,7 @@ class UserServiceTest {
     @Mock
     private UserRepository userRepository;
     @Mock private FollowRepository followRepository;
+    @Mock private com.bfrost.backend.club.MembershipRepository membershipRepository;
     @Mock private NotificationService notificationService;
     @Mock private PasswordEncoder passwordEncoder;
 
@@ -34,7 +35,7 @@ class UserServiceTest {
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(userRepository, followRepository, notificationService, passwordEncoder);
+        userService = new UserService(userRepository, followRepository, membershipRepository, notificationService, passwordEncoder);
     }
 
     private User aUser() {
