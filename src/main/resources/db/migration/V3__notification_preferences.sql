@@ -1,0 +1,5 @@
+ALTER TABLE users
+    ADD COLUMN notify_follow       BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN notify_like         BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN notify_comment      BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN notify_join_request BOOLEAN NOT NULL DEFAULT TRUE;
