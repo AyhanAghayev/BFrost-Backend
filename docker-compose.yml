@@ -1,41 +1,50 @@
-version: "3.8"
-
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: bfrost-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-bfrost}
+      POSTGRES_USER: ${DB_USERNAME:-bfrost}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-bfrost}
+    volumes:
+      - bfrost_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-bfrost} -d ${DB_NAME:-bfrost}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build:
       context: .
-      dockerfile: Dockerfile.dev
-    container_name: bfrost-backend-dev
+      dockerfile: Dockerfile
+    container_name: bfrost-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8080:8080"
-    env_file:
-      - .env
-    volumes:
-      - ./src:/app/src
-      - ./pom.xml:/app/pom.xml
-      - ~/.m2:/root/.m2
-    depends_on:
-      - db
-
-  db:
-    image: mysql:8.0
-    container_name: bfrost-mysql-dev
-    restart: always
-    ports:
-      - "3306:3306"
-    env_file:
-      - .env
     environment:
-      MYSQL_DATABASE: bfrost
-      MYSQL_USER: ${DB_USERNAME}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-      MYSQL_ROOT_PASSWORD: root
-    command: >
-      --default-authentication-plugin=mysql_native_password
-      --character-set-server=utf8mb4
-      --collation-server=utf8mb4_unicode_ci
-    volumes:
-      - bfrost_mysql_data:/var/lib/mysql
+      SPRING_PROFILES_ACTIVE: docker
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-bfrost}
+      DB_USERNAME: ${DB_USERNAME:-bfrost}
+      DB_PASSWORD: ${DB_PASSWORD:-bfrost}
+      JWT_SECRET: ${JWT_SECRET:-devonlysecretkeydevonlysecretkeydevonlysecretkey}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-Lax}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-default_google_client_id}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-default_google_client_secret}
+      OAUTH2_FRONTEND_REDIRECT: ${OAUTH2_FRONTEND_REDIRECT:-http://localhost:3000/oauth/callback}
+      OAUTH2_FAILURE_REDIRECT: ${OAUTH2_FAILURE_REDIRECT:-http://localhost:3000/sign-in}
+      OAUTH2_REGISTRATION_REDIRECT: ${OAUTH2_REGISTRATION_REDIRECT:-http://localhost:3000/oauth/complete-registration}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
 
 volumes:
-  bfrost_mysql_data:
+  bfrost_pg_data:
