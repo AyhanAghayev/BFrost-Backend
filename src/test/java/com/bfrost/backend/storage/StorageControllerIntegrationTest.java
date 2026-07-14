@@ -9,11 +9,15 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -26,6 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class StorageControllerIntegrationTest {
 
     @Autowired private MockMvc mockMvc;
+    @MockitoBean private StorageService storageService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private String registerAndGetToken(String username) throws Exception {
@@ -65,10 +70,12 @@ class StorageControllerIntegrationTest {
         String username = "up" + UUID.randomUUID().toString().substring(0, 8);
         String token = registerAndGetToken(username);
         MockMultipartFile file = new MockMultipartFile("file", "photo.png", "image/png", "data".getBytes());
+        String cloudinaryUrl = "https://res.cloudinary.com/demo/image/upload/v1/avatars/abc.png";
+        when(storageService.store(any(), eq("avatars"))).thenReturn(cloudinaryUrl);
 
         mockMvc.perform(multipart("/api/v1/upload/avatars").file(file).cookie(accessTokenCookie(token)))
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.url").value(org.hamcrest.Matchers.containsString("/uploads/avatars/")));
+            .andExpect(jsonPath("$.url").value(cloudinaryUrl));
     }
 
     private record RegisterPayload(String username, String email, String password, String displayName) {}
