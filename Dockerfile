@@ -16,7 +16,7 @@ RUN groupadd -r bfrost && useradd -r -g bfrost bfrost
 
 COPY --from=build /app/target/*.jar app.jar
 
-RUN mkdir -p /app/uploads && chown -R bfrost:bfrost /app
+RUN chown -R bfrost:bfrost /app
 USER bfrost
 
 EXPOSE 8080

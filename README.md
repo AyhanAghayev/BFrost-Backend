@@ -95,8 +95,9 @@ Key design points:
 | `DB_PASSWORD` | No | `bfrost` | Database password |
 | `PORT` | No | `8080` | HTTP port the application listens on |
 | `JWT_SECRET` | Yes in production | dev-only fallback value | HMAC signing key for access tokens (minimum 32 bytes) |
-| `UPLOAD_DIR` | No | `uploads` | Local filesystem directory for uploaded files |
-| `BASE_URL` | No | `http://localhost:8080` | Public base URL used when building upload URLs |
+| `CLOUDINARY_CLOUD_NAME` | Yes | empty | Cloudinary cloud name for image storage |
+| `CLOUDINARY_API_KEY` | Yes | empty | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | Yes | empty | Cloudinary API secret |
 | `GOOGLE_CLIENT_ID` | Only for Google login | empty | OAuth2 client ID registered with Google |
 | `GOOGLE_CLIENT_SECRET` | Only for Google login | empty | OAuth2 client secret registered with Google |
 | `OAUTH_SUCCESS_REDIRECT` | No | `http://localhost:3000/oauth/callback` | Frontend URL the user is redirected to after a successful Google login, with the access token appended as a query parameter |
