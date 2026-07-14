@@ -21,12 +21,12 @@ linked below.
 
 ## Project Links
 
-| Resource | Link                                                      |
-|---|-----------------------------------------------------------|
-| Backend repository | [link](https://github.com/AyhanAghayev/BFrost-Backend)    |
-| Frontend repository | [link](https://github.com/AyhanAghayev/BFrost-Frontend)   |
-| Live application | [link]()                                                  |
-| API documentation (Swagger UI) | `/swagger-ui.html` on the deployed backend                |
+| Resource | Link                                                    |
+|---|---------------------------------------------------------|
+| Backend repository | [link](https://github.com/AyhanAghayev/BFrost-Backend)  |
+| Frontend repository | [link](https://github.com/AyhanAghayev/BFrost-Frontend) |
+| Live application | [link](https://b-frost.vercel.app)                      |
+| API documentation (Swagger UI) | `/swagger-ui.html` on the deployed backend              |
 
 ## Technologies Used
 
